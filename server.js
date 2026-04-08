@@ -11,6 +11,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Root route fix
+app.get('/', (req, res) => {
+    res.send('OK');
+});
+
 // JSON file as database
 const DATA_FILE = path.join(__dirname, 'submissions.json');
 
@@ -157,6 +162,6 @@ app.get('/api/admin/generate-vcf', checkAdmin, (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`🚀 QUANTIX TECH Server running on http://localhost:${PORT}`);
-    console.log(`📁 Data saved to: ${DATA_FILE}`);
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Data saved to: ${DATA_FILE}`);
 });
