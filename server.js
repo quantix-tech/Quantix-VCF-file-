@@ -11,32 +11,27 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Root route fix
+// Root route
 app.get('/', (req, res) => {
     res.send('OK');
 });
 
-// JSON file as database
+// JSON database
 const DATA_FILE = path.join(__dirname, 'submissions.json');
 
-// Initialize data file if it doesn't exist
 if (!fs.existsSync(DATA_FILE)) {
     fs.writeFileSync(DATA_FILE, JSON.stringify({ submissions: [], nextId: 1 }, null, 2));
 }
 
-// Helper functions
 function readData() {
-    const data = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 }
 
 function writeData(data) {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-// ========== PUBLIC ENDPOINTS ==========
-
-// Get stats
+// Public endpoints
 app.get('/api/stats', (req, res) => {
     const data = readData();
     const verified = data.submissions.filter(s => s.verified === 1).length;
@@ -47,27 +42,17 @@ app.get('/api/stats', (req, res) => {
     });
 });
 
-// Submit contact
 app.post('/api/submit', (req, res) => {
     const { name, phone } = req.body;
-    
-    if (!name || !phone) {
-        return res.status(400).json({ error: 'Name and phone are required' });
-    }
+    if (!name || !phone) return res.status(400).json({ error: 'Name and phone required' });
     
     const phoneRegex = /^\+\d{10,15}$/;
-    if (!phoneRegex.test(phone)) {
-        return res.status(400).json({ error: 'Invalid phone format. Use +1234567890' });
-    }
+    if (!phoneRegex.test(phone)) return res.status(400).json({ error: 'Invalid phone: +1234567890' });
     
     const data = readData();
+    if (data.submissions.some(s => s.phone === phone)) return res.status(400).json({ error: 'Phone already submitted' });
     
-    const exists = data.submissions.find(s => s.phone === phone);
-    if (exists) {
-        return res.status(400).json({ error: 'This phone number has already been submitted' });
-    }
-    
-    const newSubmission = {
+    const newSub = {
         id: data.nextId++,
         name,
         phone,
@@ -75,93 +60,61 @@ app.post('/api/submit', (req, res) => {
         submitted_at: new Date().toISOString()
     };
     
-    data.submissions.push(newSubmission);
+    data.submissions.push(newSub);
     writeData(data);
-    
-    const verifiedCount = data.submissions.filter(s => s.verified === 1).length;
-    res.json({ 
-        success: true, 
-        message: 'Submitted successfully!',
-        verified_count: verifiedCount
-    });
+    res.json({ success: true, message: 'Submitted!' });
 });
 
-// ========== ADMIN ENDPOINTS ==========
-
+// Admin middleware
 const checkAdmin = (req, res, next) => {
     const passkey = req.headers['x-admin-passkey'] || req.query.passkey;
-    const adminPasskey = process.env.ADMIN_PASSKEY || 'Quantix2024';
-    
-    if (passkey === adminPasskey) {
+    if (passkey === (process.env.ADMIN_PASSKEY || 'Quantix2024')) {
         next();
     } else {
         res.status(401).json({ error: 'Unauthorized' });
     }
 };
 
-// Get all submissions
-app.get('/api/admin/submissions', checkAdmin, (req, res) => {
-    const data = readData();
-    res.json(data.submissions);
-});
+// Admin routes
+app.get('/api/admin/submissions', checkAdmin, (req, res) => res.json(readData().submissions));
 
-// Get admin stats
 app.get('/api/admin/stats', checkAdmin, (req, res) => {
     const data = readData();
     const verified = data.submissions.filter(s => s.verified === 1).length;
-    res.json({
-        total: data.submissions.length,
-        verified: verified,
-        pending: data.submissions.length - verified
-    });
+    res.json({ total: data.submissions.length, verified, pending: data.submissions.length - verified });
 });
 
-// Verify a contact
 app.put('/api/admin/verify/:id', checkAdmin, (req, res) => {
-    const { id } = req.params;
     const data = readData();
-    
-    const submission = data.submissions.find(s => s.id === parseInt(id));
-    if (submission) {
-        submission.verified = 1;
+    const sub = data.submissions.find(s => s.id === parseInt(req.params.id));
+    if (sub) {
+        sub.verified = 1;
         writeData(data);
         res.json({ success: true });
-    } else {
-        res.status(404).json({ error: 'Not found' });
-    }
+    } else res.status(404).json({ error: 'Not found' });
 });
 
-// Delete a contact
 app.delete('/api/admin/delete/:id', checkAdmin, (req, res) => {
-    const { id } = req.params;
     const data = readData();
-    
-    data.submissions = data.submissions.filter(s => s.id !== parseInt(id));
+    data.submissions = data.submissions.filter(s => s.id !== parseInt(req.params.id));
     writeData(data);
     res.json({ success: true });
 });
 
-// Generate VCF file
 app.get('/api/admin/generate-vcf', checkAdmin, (req, res) => {
-    const data = readData();
-    const verified = data.submissions.filter(s => s.verified === 1);
-    
-    let vcfContent = '';
-    verified.forEach(contact => {
-        vcfContent += `BEGIN:VCARD\n`;
-        vcfContent += `VERSION:3.0\n`;
-        vcfContent += `FN:${contact.name}\n`;
-        vcfContent += `TEL:${contact.phone}\n`;
-        vcfContent += `END:VCARD\n`;
+    const verified = readData().submissions.filter(s => s.verified === 1);
+    let vcf = '';
+    verified.forEach(c => {
+        vcf += `BEGIN:VCARD\nVERSION:3.0\nFN:${c.name}\nTEL:${c.phone}\nEND:VCARD\n`;
     });
-    
-    res.setHeader('Content-Type', 'text/vcard');
-    res.setHeader('Content-Disposition', 'attachment; filename=quantix-contacts.vcf');
-    res.send(vcfContent);
+    res.set('Content-Type', 'text/vcard');
+    res.set('Content-Disposition', 'attachment; filename=quantix.vcf');
+    res.send(vcf);
 });
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Data saved to: ${DATA_FILE}`);
+// Serve admin dashboard (add this line)
+app.get('/admin-dashboard.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
 });
+
+app.listen(PORT, () => console.log(`Server on port ${PORT}`));
