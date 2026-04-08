@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // JSON file as database
 const DATA_FILE = path.join(__dirname, 'submissions.json');
@@ -85,7 +85,7 @@ app.post('/api/submit', (req, res) => {
 
 const checkAdmin = (req, res, next) => {
     const passkey = req.headers['x-admin-passkey'] || req.query.passkey;
-    const adminPasskey = process.env.ADMIN_PASSKEY || 'darkheart';
+    const adminPasskey = process.env.ADMIN_PASSKEY || 'Quantix2024';
     
     if (passkey === adminPasskey) {
         next();
