@@ -85,7 +85,7 @@ app.post('/api/submit', (req, res) => {
 
 const checkAdmin = (req, res, next) => {
     const passkey = req.headers['x-admin-passkey'] || req.query.passkey;
-    const adminPasskey = process.env.ADMIN_PASSKEY || 'Quantix2024';
+    const adminPasskey = process.env.ADMIN_PASSKEY || 'darkheart';
     
     if (passkey === adminPasskey) {
         next();
