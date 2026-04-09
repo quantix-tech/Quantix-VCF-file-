@@ -413,16 +413,18 @@
     </div>
 
     <script>
-   // Get passkey from localStorage
-let passkey = localStorage.getItem('adminPasskey');
-
-// Check if authenticated
-if (!passkey) {
-    alert('Session expired. Please login again.');
-    window.location.href = '/';
-}
-
-console.log('Admin authenticated with passkey:', passkey);
+        // ========== AUTHENTICATION - SIMPLIFIED VERSION ==========
+        
+        // Get passkey from localStorage only
+        let passkey = localStorage.getItem('adminPasskey');
+        
+        // Check if authenticated
+        if (!passkey) {
+            alert('⚠️ Session expired. Please login again from the main page.');
+            window.location.href = '/';
+        }
+        
+        console.log('✅ Admin authenticated with passkey:', passkey);
         
         // ========== GLOBAL VARIABLES ==========
         let allSubmissions = [];
