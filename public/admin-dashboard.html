@@ -413,30 +413,16 @@
     </div>
 
     <script>
-        // ========== AUTHENTICATION - FIXED VERSION ==========
-        
-        // Get passkey from multiple sources
-        let passkey = localStorage.getItem('adminPasskey');
-        
-        // Also check URL parameter (for direct redirect)
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlPasskey = urlParams.get('passkey');
-        
-        if (urlPasskey) {
-            passkey = urlPasskey;
-            localStorage.setItem('adminPasskey', passkey);
-            localStorage.setItem('adminAuthenticated', 'true');
-            // Remove passkey from URL for cleaner look
-            window.history.replaceState({}, document.title, '/admin-dashboard');
-        }
-        
-        // Check if authenticated
-        if (!passkey) {
-            alert('⚠️ Access Denied!\n\nPlease login from the main page using the admin icon.');
-            window.location.href = '/';
-        }
-        
-        console.log('✅ Admin authenticated with passkey:', passkey);
+   // Get passkey from localStorage
+let passkey = localStorage.getItem('adminPasskey');
+
+// Check if authenticated
+if (!passkey) {
+    alert('Session expired. Please login again.');
+    window.location.href = '/';
+}
+
+console.log('Admin authenticated with passkey:', passkey);
         
         // ========== GLOBAL VARIABLES ==========
         let allSubmissions = [];
