@@ -413,20 +413,34 @@
     </div>
 
     <script>
-// ========== AUTHENTICATION - SIMPLIFIED VERSION ==========
+// ========== AUTHENTICATION - FIXED VERSION ==========
 
-// Get passkey from localStorage only
+// Get passkey from localStorage OR URL parameter
 let passkey = localStorage.getItem('adminPasskey');
+
+// Also check URL parameter (for redirect from login)
+const urlParams = new URLSearchParams(window.location.search);
+const urlPasskey = urlParams.get('passkey');
+
+// IMPORTANT: Save URL passkey to localStorage BEFORE clearing URL
+if (urlPasskey && !passkey) {
+    passkey = urlPasskey;
+    localStorage.setItem('adminPasskey', passkey);
+    localStorage.setItem('adminAuthenticated', 'true');
+}
 
 // Check if authenticated
 if (!passkey) {
     alert('⚠️ Session expired. Please login again from the main page.');
     window.location.href = '/';
-    // Stop further execution
-    throw new Error('Authentication required - redirecting to login');
 }
 
-console.log('✅ Admin authenticated');
+// Clear URL parameter AFTER saving (clean look, but keep passkey in localStorage)
+if (urlPasskey) {
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+console.log('✅ Admin authenticated with passkey:', passkey);
 
         // ========== GLOBAL VARIABLES ==========
         let allSubmissions = [];
