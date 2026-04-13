@@ -413,306 +413,308 @@
     </div>
 
     <script>
-// ========== AUTHENTICATION - FIXED VERSION ==========
+<script>
+    // ========== AUTHENTICATION - FIXED VERSION ==========
 
-// Get passkey from localStorage OR URL parameter
-let passkey = localStorage.getItem('adminPasskey');
-
-// Also check URL parameter (for redirect from login)
-const urlParams = new URLSearchParams(window.location.search);
-const urlPasskey = urlParams.get('passkey');
-
-// IMPORTANT: Save URL passkey to localStorage BEFORE clearing URL
-if (urlPasskey && !passkey) {
-    passkey = urlPasskey;
-    localStorage.setItem('adminPasskey', passkey);
-    localStorage.setItem('adminAuthenticated', 'true');
-}
-
-// Check if authenticated
-if (!passkey) {
-    alert('⚠️ Session expired. Please login again from the main page.');
-    window.location.href = '/';
-}
-// Stop further execution
-    throw new Error('Authentication required - redirecting to login');
-}
-
-
-
-// Clear URL parameter AFTER saving (clean look, but keep passkey in localStorage)
-if (urlPasskey) {
-    window.history.replaceState({}, document.title, window.location.pathname);
-}
-
-console.log('✅ Admin authenticated with passkey:', passkey);
-
-        // ========== GLOBAL VARIABLES ==========
-        let allSubmissions = [];
-        let currentFilter = 'all';
-        let currentSearch = '';
-        
-        // ========== LOAD DATA ==========
-        async function loadData() {
-            await loadStats();
-            await loadSubmissions();
-        }
-        
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/admin/stats', {
-                    headers: { 'x-admin-passkey': passkey }
-                });
-                
-                if (response.status === 401) {
-                    handleUnauthorized();
-                    return;
-                }
-                
-                const stats = await response.json();
-                document.getElementById('totalCount').textContent = stats.total;
-                document.getElementById('verifiedCount').textContent = stats.verified;
-                document.getElementById('pendingCount').textContent = stats.pending;
-                
-                const progress = ((stats.verified / 500) * 100).toFixed(1);
-                document.getElementById('targetProgress').textContent = `${progress}%`;
-            } catch (error) {
-                console.error('Error loading stats:', error);
-            }
-        }
-        
-        async function loadSubmissions() {
-            try {
-                const response = await fetch('/api/admin/submissions', {
-                    headers: { 'x-admin-passkey': passkey }
-                });
-                
-                if (response.status === 401) {
-                    handleUnauthorized();
-                    return;
-                }
-                
-                allSubmissions = await response.json();
-                displaySubmissions();
-            } catch (error) {
-                document.getElementById('submissionsContainer').innerHTML = 
-                    '<div class="loading">❌ Error loading submissions. Make sure server is running.</div>';
-            }
-        }
-        
-        // ========== DISPLAY SUBMISSIONS ==========
-        function displaySubmissions() {
-            let filtered = [...allSubmissions];
+    // Get passkey from localStorage OR URL parameter
+    let passkey = localStorage.getItem('adminPasskey');
+    
+    // Also check URL parameter (for redirect from login)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPasskey = urlParams.get('passkey');
+    
+    // IMPORTANT: Save URL passkey to localStorage BEFORE clearing URL
+    if (urlPasskey && !passkey) {
+        passkey = urlPasskey;
+        localStorage.setItem('adminPasskey', passkey);
+        localStorage.setItem('adminAuthenticated', 'true');
+    }
+    
+    // Check if authenticated
+    if (!passkey) {
+        alert('⚠️ Session expired. Please login again from the main page.');
+        window.location.href = '/';
+    }
+    
+    // Clear URL parameter AFTER saving (clean look, but keep passkey in localStorage)
+    if (urlPasskey) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    console.log('✅ Admin authenticated with passkey:', passkey);
+    
+    // ========== GLOBAL VARIABLES ==========
+    let allSubmissions = [];
+    let currentFilter = 'all';
+    let currentSearch = '';
+    
+    // ========== LOAD DATA ==========
+    async function loadData() {
+        await loadStats();
+        await loadSubmissions();
+    }
+    
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/admin/stats', {
+                headers: { 'x-admin-passkey': passkey }
+            });
             
-            // Apply filter
-            if (currentFilter === 'pending') {
-                filtered = filtered.filter(sub => sub.verified === 0);
-            } else if (currentFilter === 'verified') {
-                filtered = filtered.filter(sub => sub.verified === 1);
-            }
-            
-            // Apply search
-            if (currentSearch) {
-                const searchLower = currentSearch.toLowerCase();
-                filtered = filtered.filter(sub => 
-                    sub.name.toLowerCase().includes(searchLower) || 
-                    sub.phone.includes(searchLower)
-                );
-            }
-            
-            const container = document.getElementById('submissionsContainer');
-            
-            if (filtered.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <p>No submissions found</p>
-                    </div>
-                `;
+            if (response.status === 401) {
+                handleUnauthorized();
                 return;
             }
             
-            container.innerHTML = '';
+            const stats = await response.json();
+            document.getElementById('totalCount').textContent = stats.total;
+            document.getElementById('verifiedCount').textContent = stats.verified;
+            document.getElementById('pendingCount').textContent = stats.pending;
             
-            filtered.forEach(sub => {
-                const div = document.createElement('div');
-                div.className = `submission-item ${sub.verified === 1 ? 'verified' : ''}`;
-                
-                div.innerHTML = `
-                    <div class="submission-info">
-                        <div class="submission-name">${escapeHtml(sub.name)}</div>
-                        <div class="submission-phone">📞 ${escapeHtml(sub.phone)}</div>
-                        <div class="submission-date">📅 ${new Date(sub.submitted_at).toLocaleString()}</div>
-                    </div>
-                    <div class="submission-actions">
-                        ${sub.verified === 0 ? 
-                            `<button class="verify-btn" onclick="verifyContact(${sub.id})">✓ Verify</button>` : 
-                            '<span class="verified-badge">✅ Verified</span>'
-                        }
-                        <button class="delete-btn" onclick="deleteContact(${sub.id})">🗑 Delete</button>
-                    </div>
-                `;
-                
-                container.appendChild(div);
+            const progress = ((stats.verified / 500) * 100).toFixed(1);
+            document.getElementById('targetProgress').textContent = `${progress}%`;
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+    
+    async function loadSubmissions() {
+        try {
+            const response = await fetch('/api/admin/submissions', {
+                headers: { 'x-admin-passkey': passkey }
             });
+            
+            if (response.status === 401) {
+                handleUnauthorized();
+                return;
+            }
+            
+            allSubmissions = await response.json();
+            displaySubmissions();
+        } catch (error) {
+            document.getElementById('submissionsContainer').innerHTML = 
+                '<div class="loading">❌ Error loading submissions. Make sure server is running.</div>';
+        }
+    }
+    
+    // ========== DISPLAY SUBMISSIONS ==========
+    function displaySubmissions() {
+        let filtered = [...allSubmissions];
+        
+        // Apply filter
+        if (currentFilter === 'pending') {
+            filtered = filtered.filter(sub => sub.verified === 0);
+        } else if (currentFilter === 'verified') {
+            filtered = filtered.filter(sub => sub.verified === 1);
         }
         
-        // ========== ACTIONS ==========
-        async function verifyContact(id) {
-            try {
-                const response = await fetch(`/api/admin/verify/${id}`, {
+        // Apply search
+        if (currentSearch) {
+            const searchLower = currentSearch.toLowerCase();
+            filtered = filtered.filter(sub => 
+                sub.name.toLowerCase().includes(searchLower) || 
+                sub.phone.includes(searchLower)
+            );
+        }
+        
+        const container = document.getElementById('submissionsContainer');
+        
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <p>No submissions found</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = '';
+        
+        filtered.forEach(sub => {
+            const div = document.createElement('div');
+            div.className = `submission-item ${sub.verified === 1 ? 'verified' : ''}`;
+            
+            div.innerHTML = `
+                <div class="submission-info">
+                    <div class="submission-name">${escapeHtml(sub.name)}</div>
+                    <div class="submission-phone">📞 ${escapeHtml(sub.phone)}</div>
+                    <div class="submission-date">📅 ${new Date(sub.submitted_at).toLocaleString()}</div>
+                </div>
+                <div class="submission-actions">
+                    ${sub.verified === 0 ? 
+                        `<button class="verify-btn" onclick="verifyContact(${sub.id})">✓ Verify</button>` : 
+                        '<span class="verified-badge">✅ Verified</span>'
+                    }
+                    <button class="delete-btn" onclick="deleteContact(${sub.id})">🗑 Delete</button>
+                </div>
+            `;
+            
+            container.appendChild(div);
+        });
+    }
+    
+    // ========== ACTIONS ==========
+    async function verifyContact(id) {
+        try {
+            const response = await fetch(`/api/admin/verify/${id}`, {
+                method: 'PUT',
+                headers: { 'x-admin-passkey': passkey }
+            });
+            
+            if (response.ok) {
+                await loadData();
+                showToast('✅ Contact verified successfully!', 'success');
+            } else {
+                showToast('❌ Failed to verify contact', 'error');
+            }
+        } catch (error) {
+            console.error('Error verifying contact:', error);
+            showToast('Error verifying contact', 'error');
+        }
+    }
+    
+    async function verifyAll() {
+        const pending = allSubmissions.filter(sub => sub.verified === 0);
+        if (pending.length === 0) {
+            showToast('No pending contacts to verify', 'info');
+            return;
+        }
+        
+        if (confirm(`Verify all ${pending.length} pending contacts?`)) {
+            for (const sub of pending) {
+                await fetch(`/api/admin/verify/${sub.id}`, {
                     method: 'PUT',
+                    headers: { 'x-admin-passkey': passkey }
+                });
+            }
+            await loadData();
+            showToast(`✅ Verified ${pending.length} contacts!`, 'success');
+        }
+    }
+    
+    async function deleteContact(id) {
+        if (confirm('Are you sure you want to delete this contact?')) {
+            try {
+                const response = await fetch(`/api/admin/delete/${id}`, {
+                    method: 'DELETE',
                     headers: { 'x-admin-passkey': passkey }
                 });
                 
                 if (response.ok) {
                     await loadData();
-                    showToast('✅ Contact verified successfully!', 'success');
+                    showToast('🗑 Contact deleted successfully', 'success');
+                } else {
+                    showToast('❌ Failed to delete contact', 'error');
                 }
             } catch (error) {
-                alert('Error verifying contact');
+                console.error('Error deleting contact:', error);
+                showToast('Error deleting contact', 'error');
             }
         }
-        
-        async function verifyAll() {
-            const pending = allSubmissions.filter(sub => sub.verified === 0);
-            if (pending.length === 0) {
-                showToast('No pending contacts to verify', 'info');
-                return;
-            }
-            
-            if (confirm(`Verify all ${pending.length} pending contacts?`)) {
-                for (const sub of pending) {
-                    await fetch(`/api/admin/verify/${sub.id}`, {
-                        method: 'PUT',
-                        headers: { 'x-admin-passkey': passkey }
-                    });
-                }
-                await loadData();
-                showToast(`✅ Verified ${pending.length} contacts!`, 'success');
-            }
+    }
+    
+    function downloadVCF() {
+        window.location.href = `/api/admin/generate-vcf?passkey=${passkey}`;
+    }
+    
+    function exportCSV() {
+        const verified = allSubmissions.filter(sub => sub.verified === 1);
+        if (verified.length === 0) {
+            showToast('No verified contacts to export', 'info');
+            return;
         }
         
-        async function deleteContact(id) {
-            if (confirm('Are you sure you want to delete this contact?')) {
-                try {
-                    const response = await fetch(`/api/admin/delete/${id}`, {
-                        method: 'DELETE',
-                        headers: { 'x-admin-passkey': passkey }
-                    });
-                    
-                    if (response.ok) {
-                        await loadData();
-                        showToast('🗑 Contact deleted successfully', 'success');
-                    }
-                } catch (error) {
-                    alert('Error deleting contact');
-                }
-            }
-        }
+        let csv = 'Name,Phone Number,Submitted Date\n';
+        verified.forEach(sub => {
+            csv += `"${sub.name}","${sub.phone}","${new Date(sub.submitted_at).toLocaleString()}"\n`;
+        });
         
-        function downloadVCF() {
-            window.location.href = `/api/admin/generate-vcf?passkey=${passkey}`;
-        }
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'quantix-contacts.csv';
+        a.click();
+        URL.revokeObjectURL(url);
         
-        function exportCSV() {
-            const verified = allSubmissions.filter(sub => sub.verified === 1);
-            if (verified.length === 0) {
-                showToast('No verified contacts to export', 'info');
-                return;
-            }
-            
-            let csv = 'Name,Phone Number,Submitted Date\n';
-            verified.forEach(sub => {
-                csv += `"${sub.name}","${sub.phone}","${new Date(sub.submitted_at).toLocaleString()}"\n`;
-            });
-            
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'quantix-contacts.csv';
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            showToast('📄 CSV exported successfully!', 'success');
-        }
+        showToast('📄 CSV exported successfully!', 'success');
+    }
+    
+    // ========== FILTER & SEARCH ==========
+    function filterSubmissions(filter) {
+        currentFilter = filter;
         
-        // ========== FILTER & SEARCH ==========
-        function filterSubmissions(filter) {
-            currentFilter = filter;
-            
-            // Update active button styles
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            displaySubmissions();
-        }
+        // Update active button styles
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
         
-        function searchSubmissions() {
-            currentSearch = document.getElementById('searchInput').value;
-            displaySubmissions();
-        }
-        
-        function refreshData() {
-            loadData();
-            showToast('🔄 Data refreshed!', 'success');
-        }
-        
-        // ========== LOGOUT ==========
-        function logout() {
-            localStorage.removeItem('adminAuthenticated');
-            localStorage.removeItem('adminPasskey');
-            window.location.href = '/';
-        }
-        
-        function handleUnauthorized() {
-            alert('Session expired. Please login again.');
-            logout();
-        }
-        
-       // ========== HELPER FUNCTIONS ==========
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            });
-        }
-        
-        function showToast(message, type) {
-            const toast = document.createElement('div');
-            toast.style.cssText = `
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                background: ${type === 'success' ? '#28a745' : '#17a2b8'};
-                color: white;
-                padding: 12px 24px;
-                border-radius: 10px;
-                z-index: 9999;
-                animation: slideIn 0.3s ease;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            `;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
-        }
-        
-        // ========== INITIALIZE ==========
+        displaySubmissions();
+    }
+    
+    function searchSubmissions() {
+        currentSearch = document.getElementById('searchInput').value;
+        displaySubmissions();
+    }
+    
+    function refreshData() {
         loadData();
+        showToast('🔄 Data refreshed!', 'success');
+    }
+    
+    // ========== LOGOUT ==========
+    function logout() {
+        localStorage.removeItem('adminAuthenticated');
+        localStorage.removeItem('adminPasskey');
+        window.location.href = '/';
+    }
+    
+    function handleUnauthorized() {
+        alert('Session expired. Please login again.');
+        logout();
+    }
+    
+    // ========== HELPER FUNCTIONS ==========
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
         
-        // Auto-refresh every 60 seconds
-        setInterval(() => {
-            loadStats();
-        }, 60000);
-    </script>
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+    
+    // ========== INITIALIZE ==========
+    loadData();
+    
+    // Auto-refresh every 60 seconds
+    setInterval(() => {
+        loadStats();
+    }, 60000);
+</script>
 </body>
 </html>
