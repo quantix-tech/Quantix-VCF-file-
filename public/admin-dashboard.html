@@ -151,46 +151,48 @@
     </div>
 
     <script>
-        // ========== SIMPLE AUTH ==========
-        // Get passkey from URL or localStorage
+        // ========== SIMPLE AUTH - NO AUTO LOGOUT ==========
+        
+        // Get passkey from localStorage
         let passkey = localStorage.getItem('adminPasskey');
         
-        // Check URL for passkey
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('passkey')) {
-            passkey = urlParams.get('passkey');
-            localStorage.setItem('adminPasskey', passkey);
-            // Remove from URL
-            window.history.replaceState({}, document.title, '/admin-dashboard.html');
-        }
-        
-        // If no passkey, redirect
+        // If no passkey, redirect to login
         if (!passkey) {
             alert('Please login from main page');
             window.location.href = '/';
         }
         
-        console.log('Passkey:', passkey);
+        console.log('Admin authenticated');
         
         // ========== GLOBALS ==========
         let allSubmissions = [];
         let currentFilter = 'all';
         let currentSearch = '';
         
-        // ========== API CALLS ==========
+        // ========== API CALLS - NO AUTO LOGOUT ON ERROR ==========
         async function loadStats() {
             try {
                 const res = await fetch('/api/admin/stats', {
                     headers: { 'x-admin-passkey': passkey }
                 });
-                if (res.status === 401) { logout(); return; }
+                
+                // If unauthorized, JUST SHOW ERROR - DON'T LOGOUT
+                if (res.status === 401) {
+                    console.error('Auth error - but staying on page');
+                    document.getElementById('totalCount').textContent = 'Error';
+                    return;
+                }
+                
                 const stats = await res.json();
                 document.getElementById('totalCount').textContent = stats.total || 0;
                 document.getElementById('verifiedCount').textContent = stats.verified || 0;
                 document.getElementById('pendingCount').textContent = stats.pending || 0;
                 const progress = ((stats.verified || 0) / 500 * 100).toFixed(1);
                 document.getElementById('targetProgress').textContent = `${progress}%`;
-            } catch(e) { console.error(e); }
+            } catch(e) { 
+                console.error('Stats error:', e);
+                // Don't logout - just show error
+            }
         }
         
         async function loadSubmissions() {
@@ -198,11 +200,19 @@
                 const res = await fetch('/api/admin/submissions', {
                     headers: { 'x-admin-passkey': passkey }
                 });
-                if (res.status === 401) { logout(); return; }
+                
+                // If unauthorized, JUST SHOW ERROR - DON'T LOGOUT
+                if (res.status === 401) {
+                    console.error('Auth error - but staying on page');
+                    document.getElementById('submissionsContainer').innerHTML = '<div class="loading">Auth error - please refresh page</div>';
+                    return;
+                }
+                
                 allSubmissions = await res.json();
                 displaySubmissions();
             } catch(e) {
-                document.getElementById('submissionsContainer').innerHTML = '<div class="loading">Error loading data</div>';
+                console.error('Load error:', e);
+                document.getElementById('submissionsContainer').innerHTML = '<div class="loading">Error loading data - check connection</div>';
             }
         }
         
@@ -243,11 +253,19 @@
         }
         
         async function verifyContact(id) {
-            const res = await fetch(`/api/admin/verify/${id}`, {
-                method: 'PUT',
-                headers: { 'x-admin-passkey': passkey }
-            });
-            if (res.ok) { loadStats(); loadSubmissions(); alert('✅ Verified!'); }
+            try {
+                const res = await fetch(`/api/admin/verify/${id}`, {
+                    method: 'PUT',
+                    headers: { 'x-admin-passkey': passkey }
+                });
+                if (res.ok) { 
+                    loadStats(); 
+                    loadSubmissions(); 
+                    alert('✅ Verified!'); 
+                } else {
+                    alert('❌ Verification failed');
+                }
+            } catch(e) { alert('Error: ' + e.message); }
         }
         
         async function verifyAll() {
@@ -255,21 +273,33 @@
             if (pending.length === 0) { alert('No pending contacts'); return; }
             if (confirm(`Verify ${pending.length} contacts?`)) {
                 for (const sub of pending) {
-                    await fetch(`/api/admin/verify/${sub.id}`, { method: 'PUT', headers: { 'x-admin-passkey': passkey } });
+                    await fetch(`/api/admin/verify/${sub.id}`, { 
+                        method: 'PUT', 
+                        headers: { 'x-admin-passkey': passkey } 
+                    });
                 }
-                loadStats(); loadSubmissions();
+                loadStats(); 
+                loadSubmissions();
                 alert(`✅ Verified ${pending.length} contacts!`);
             }
         }
         
         async function deleteContact(id) {
             if (confirm('Delete this contact?')) {
-                await fetch(`/api/admin/delete/${id}`, { method: 'DELETE', headers: { 'x-admin-passkey': passkey } });
-                loadStats(); loadSubmissions();
+                try {
+                    await fetch(`/api/admin/delete/${id}`, { 
+                        method: 'DELETE', 
+                        headers: { 'x-admin-passkey': passkey } 
+                    });
+                    loadStats(); 
+                    loadSubmissions();
+                } catch(e) { alert('Delete failed'); }
             }
         }
         
-        function downloadVCF() { window.location.href = `/api/admin/generate-vcf?passkey=${passkey}`; }
+        function downloadVCF() { 
+            window.location.href = `/api/admin/generate-vcf?passkey=${passkey}`; 
+        }
         
         function exportCSV() {
             const verified = allSubmissions.filter(s => s.verified === 1);
@@ -286,8 +316,6 @@
         
         function filterSubmissions(filter) {
             currentFilter = filter;
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            if (event && event.target) event.target.classList.add('active');
             displaySubmissions();
         }
         
@@ -296,11 +324,16 @@
             displaySubmissions();
         }
         
-        function refreshData() { loadStats(); loadSubmissions(); alert('Refreshed!'); }
+        function refreshData() { 
+            loadStats(); 
+            loadSubmissions(); 
+        }
         
         function logout() {
-            localStorage.removeItem('adminPasskey');
-            window.location.href = '/';
+            if (confirm('Logout?')) {
+                localStorage.removeItem('adminPasskey');
+                window.location.href = '/';
+            }
         }
         
         function escapeHtml(str) {
@@ -313,22 +346,26 @@
             });
         }
         
-        // Add filter buttons to DOM
+        // Add filter buttons
         const filterDiv = document.querySelector('.submissions-section h2');
         if (filterDiv) {
             const btnContainer = document.createElement('div');
             btnContainer.style.marginBottom = '20px';
             btnContainer.innerHTML = `
-                <button class="btn btn-secondary filter-btn" style="margin-right:10px" onclick="filterSubmissions('all')">All</button>
-                <button class="btn btn-secondary filter-btn" style="margin-right:10px" onclick="filterSubmissions('pending')">Pending</button>
-                <button class="btn btn-secondary filter-btn" onclick="filterSubmissions('verified')">Verified</button>
+                <button class="btn btn-secondary" style="margin-right:10px" onclick="filterSubmissions('all')">All</button>
+                <button class="btn btn-secondary" style="margin-right:10px" onclick="filterSubmissions('pending')">Pending</button>
+                <button class="btn btn-secondary" onclick="filterSubmissions('verified')">Verified</button>
             `;
             filterDiv.parentNode.insertBefore(btnContainer, filterDiv.nextSibling);
         }
         
-        // Load everything
+        // Load everything - NO AUTO REFRESH THAT CAUSES LOGOUT
         loadStats();
         loadSubmissions();
+        
+        // Optional: Manual refresh button only - no auto interval
+        // If you want auto refresh, use this instead (but it won't logout on error):
+        // setInterval(() => { loadStats(); }, 30000);
     </script>
 </body>
 </html>
