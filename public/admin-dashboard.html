@@ -434,6 +434,11 @@ if (!passkey) {
     alert('⚠️ Session expired. Please login again from the main page.');
     window.location.href = '/';
 }
+// Stop further execution
+    throw new Error('Authentication required - redirecting to login');
+}
+
+
 
 // Clear URL parameter AFTER saving (clean look, but keep passkey in localStorage)
 if (urlPasskey) {
